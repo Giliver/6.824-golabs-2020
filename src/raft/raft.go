@@ -77,7 +77,7 @@ type Raft struct {
 // believes it is the leader.
 func (rf *Raft) GetState() (int, bool) {
 	rf.mu.Lock()
-	defer rf.UnLock()
+	defer rf.mu.Unlock()
 	var term int = rf.CurrentTerm
 	var isleader bool = (rf.State == Leader)
 	// Your code here (2A).
@@ -157,12 +157,12 @@ func (rf *Raft) RequestVote(args *RequestVoteArgs, reply *RequestVoteReply) {
 	defer rf.mu.Unlock()
 
 	if args.Term < rf.CurrentTerm {
-		reply.VoteGrated = false
+		reply.VoteGranted = false
 		reply.Term = rf.CurrentTerm
 		return
 	}
 
-	// If Rules for Servers
+	// In Rules for Servers
 	// If RPC request or response contains term T > currentTerm:
 	// set currentTerm = T, convert to follower
 
@@ -170,11 +170,19 @@ func (rf *Raft) RequestVote(args *RequestVoteArgs, reply *RequestVoteReply) {
 		rf.CurrentTerm = args.Term
 		rf.State = Follower
 		rf.VotedFor = -1
-		rf.LastTime = time.Now()
+		// rf.LastTime = time.Now()
 	}
 
 	reply.Term = rf.CurrentTerm
-
+	// If I am being asked to revote from the same candidate
+	if ((rf.VotedFor == -1) || (rf.VotedFor == args.CandidateId)) &&
+		((args.LastLogIndex >= rf.LastLogIndex) &&
+			(args.LastLogTerm >= rf.LastLogTerm)) {
+		rf.VotedFor = args.CandidateId
+		reply.VoteGranted = true
+	} else {
+		reply.VoteGranted = false
+	}
 }
 
 //
@@ -278,5 +286,8 @@ func Make(peers []*labrpc.ClientEnd, me int,
 	// initialize from state persisted before a crash
 	rf.readPersist(persister.ReadRaftState())
 
+	// go through peers
+	// init each peer
+	//
 	return rf
 }
